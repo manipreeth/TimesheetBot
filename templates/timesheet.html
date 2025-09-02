@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Timesheet</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+        background: #f9f9f9;
+      }
+      .notice {
+        background: #e6f0ff;
+        padding: 10px;
+        border-left: 4px solid #3366cc;
+        margin-bottom: 10px;
+        font-size: 14px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+      }
+      th,
+      td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: center;
+        font-size: 14px;
+        vertical-align: top;
+      }
+      th {
+        background: #f2f2f2;
+      }
+      .details-input {
+        width: 95%;
+        padding: 5px;
+        margin-top: 2px;
+        font-size: 14px;
+      }
+      .btn {
+        padding: 10px 15px;
+        margin: 10px 5px 0 0;
+        background: #333;
+        color: #fff;
+        border: none;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      .btn:hover {
+        background: #555;
+      }
+      .total-row {
+        font-weight: bold;
+        background: #f2f2f2;
+      }
+      .remove-icon {
+        cursor: pointer;
+        color: gray;
+        font-size: 18px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="notice">
+      To SAVE/SUBMIT your timesheet, you must enter a valid Application,
+      Project, Activity with "WRK-Work Hours", or change the Time Code
+    </div>
+    <div class="notice">
+      The hours entered are less than your expected hours for the week
+    </div>
+
+    <table id="timesheetTable">
+      <thead>
+        <tr>
+          <th>Details</th>
+          <th>Sun<br />08/31</th>
+          <th>Mon<br />09/01</th>
+          <th>Tue<br />09/02</th>
+          <th>Wed<br />09/03</th>
+          <th>Thu<br />09/04</th>
+          <th>Fri<br />09/05</th>
+          <th>Sat<br />09/06</th>
+          <th>Total Hours</th>
+          <th>Remove</th>
+        </tr>
+      </thead>
+
+      <!-- Initial Row -->
+      <tbody>
+        <tr>
+          <td>
+            <label>Time Code</label><br />
+            <input
+              type="text"
+              class="details-input"
+              value="WRK - Work Hours"
+            /><br /><br />
+            <label>Application</label><br />
+            <input
+              id="applicationId1"
+              type="number"
+              class="details-input"
+              placeholder="Type at least 4 characters"
+            /><br /><br />
+            <label>Project</label><br />
+            <input
+              id="projectId1"
+              type="text"
+              class="details-input"
+              placeholder="Type at least 4 characters"
+            /><br /><br />
+            <label>Activity</label><br />
+            <select class="details-input" required id="activityId1">
+              <option value="">-- Select Activity --</option>
+              <option value="1">Planning, Tracking &amp; Mgmt</option>
+              <option value="2">
+                Requirements Definition &amp; General Design
+              </option>
+              <option value="3">Detail Design</option>
+              <option value="4">Build</option>
+              <option value="5">
+                Functionality Testing &amp; Install - Excludes UAT
+              </option>
+              <option value="6">
+                Data Conversion, Data Migration &amp; Table Entry
+              </option>
+              <option value="7">Application Maintenance Support</option>
+              <option value="8">Infrastructure Maintenance Support</option>
+              <option value="9">End User Maintenance Support</option>
+              <option value="10">Implementation - Purchased Hardware</option>
+              <option value="11">Application Production Support</option>
+              <option value="12">Infrastructure Production Support</option>
+              <option value="13">End User Production Support</option>
+              <option value="14">Administration</option>
+              <option value="15">Training Conference</option>
+              <option value="16">Travel</option>
+              <option value="17">Employee Down Time</option>
+            </select>
+          </td>
+          <td>
+            <input
+              type="text"
+              value="0:00"
+              class="details-input"
+              id="SunHours1"
+            />
+          </td>
+          <td>
+            <input
+              type="text"
+              value="0:00"
+              class="details-input"
+              id="MonHours1"
+            />
+          </td>
+          <td>
+            <input
+              type="text"
+              value="0:00"
+              class="details-input"
+              id="TueHours1"
+            />
+          </td>
+          <td>
+            <input
+              type="text"
+              value="0:00"
+              class="details-input"
+              id="WedHours1"
+            />
+          </td>
+          <td>
+            <input
+              type="text"
+              value="0:00"
+              class="details-input"
+              id="ThuHours1"
+            />
+          </td>
+          <td>
+            <input
+              type="text"
+              value="0:00"
+              class="details-input"
+              id="FriHours1"
+            />
+          </td>
+          <td>
+            <input
+              type="text"
+              value="0:00"
+              class="details-input"
+              id="SatHours1"
+            />
+          </td>
+          <td id="rowFinalHours1">0:00</td>
+          <td class="remove-icon">🗑</td>
+        </tr>
+      </tbody>
+
+      <tfoot>
+        <tr class="total-row">
+          <td>TOTAL</td>
+          <td id="finalSunHours">0:00</td>
+          <td id="finalMonHours">0:00</td>
+          <td id="finalTueHours">0:00</td>
+          <td id="finalWedHours">0:00</td>
+          <td id="finalThuHours">0:00</td>
+          <td id="finalFriHours">0:00</td>
+          <td id="finalSatHours">0:00</td>
+          <td style="color: red">0:00</td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <button class="btn" id="addRowBtn">Add Row</button>
+    <button class="btn">Copy from Previous Week</button>
+
+    <script>
+      const table = document.getElementById("timesheetTable");
+      const addRowBtn = document.getElementById("addRowBtn");
+      let rowCounter = 1; // Start row count
+
+      // Generate a row with dynamic IDs
+      function generateRow(rowNum) {
+        return `
+          <tr>
+            <td>
+              <label>Time Code</label><br />
+              <input type="text" class="details-input" value="WRK - Work Hours"/><br /><br />
+              <label>Application</label><br />
+              <input type="text" class="details-input" placeholder="Type at least 4 characters" id="applicationId${rowNum}"/><br /><br />
+              <label>Project</label><br />
+              <input type="text" class="details-input" placeholder="Type at least 4 characters" id="projectId${rowNum}"/><br /><br />
+              <label>Activity</label><br />
+              <select class="details-input" required id="activityId${rowNum}">
+                <option value="">-- Select Activity --</option>
+                <option value="1">Planning, Tracking &amp; Mgmt</option>
+                <option value="2">Requirements Definition &amp; General Design</option>
+                <option value="3">Detail Design</option>
+                <option value="4">Build</option>
+                <option value="5">Functionality Testing &amp; Install - Excludes UAT</option>
+                <option value="6">Data Conversion, Data Migration &amp; Table Entry</option>
+                <option value="7">Application Maintenance Support</option>
+                <option value="8">Infrastructure Maintenance Support</option>
+                <option value="9">End User Maintenance Support</option>
+                <option value="10">Implementation - Purchased Hardware</option>
+                <option value="11">Application Production Support</option>
+                <option value="12">Infrastructure Production Support</option>
+                <option value="13">End User Production Support</option>
+                <option value="14">Administration</option>
+                <option value="15">Training Conference</option>
+                <option value="16">Travel</option>
+                <option value="17">Employee Down Time</option>
+              </select>
+            </td>
+            <td><input type="text" value="0:00" class="details-input" id="SunHours${rowNum}"/></td>
+            <td><input type="text" value="0:00" class="details-input" id="MonHours${rowNum}"/></td>
+            <td><input type="text" value="0:00" class="details-input" id="TueHours${rowNum}"/></td>
+            <td><input type="text" value="0:00" class="details-input" id="WedHours${rowNum}"/></td>
+            <td><input type="text" value="0:00" class="details-input" id="ThuHours${rowNum}"/></td>
+            <td><input type="text" value="0:00" class="details-input" id="FriHours${rowNum}"/></td>
+            <td><input type="text" value="0:00" class="details-input" id="SatHours${rowNum}"/></td>
+            <td id="rowFinalHours${rowNum}">0:00</td>
+            <td class="remove-icon">🗑</td>
+          </tr>
+          `;
+      }
+
+      // Add new row
+      addRowBtn.addEventListener("click", () => {
+        rowCounter++;
+        const tbody = table.querySelector("tbody");
+        tbody.insertAdjacentHTML("beforeend", generateRow(rowCounter));
+      });
+
+      // Remove row on 🗑 click
+      table.addEventListener("click", (e) => {
+        if (e.target.classList.contains("remove-icon")) {
+          const tbody = e.target.closest("tbody");
+          if (tbody) tbody.remove();
+        }
+      });
+    </script>
+  </body>
+</html>
