@@ -217,11 +217,12 @@
     </table>
 
     <button class="btn" id="addRowBtn">Add Row</button>
-    <button class="btn">Copy from Previous Week</button>
+    <button class="btn" id="copyBtn">Copy from Previous Week</button>
 
     <script>
       const table = document.getElementById("timesheetTable");
       const addRowBtn = document.getElementById("addRowBtn");
+      const copyBtn = document.getElementById("copyBtn");
       let rowCounter = 1; // Start row count
 
       // Generate a row with dynamic IDs
@@ -277,6 +278,25 @@
         tbody.insertAdjacentHTML("beforeend", generateRow(rowCounter));
       });
 
+      // // Copy from previous week (dummy functionality)
+      // copyBtn.addEventListener("click", async () => {
+      //   console.log("Copy from previous week clicked");
+      //   try {
+      //     const response = await fetch(
+      //       "http://localhost:8000/copyFromLastWeek",
+      //       {
+      //         method: "POST",
+      //       }
+      //     );
+      //     if (response) {
+      //       const data = await response.json();
+      //       await fillPreviousWeekData(data?.normalized || {});
+      //     }
+      //   } catch (error) {
+      //     console.error("Error copying from previous week:", error);
+      //   }
+      // });
+
       // Remove row on 🗑 click
       table.addEventListener("click", (e) => {
         if (e.target.classList.contains("remove-icon")) {
@@ -284,6 +304,73 @@
           if (tbody) tbody.remove();
         }
       });
+
+      // // Function to fill the previous week's data
+      // async function fillPreviousWeekData(normalized) {
+      //   const weekdays = [
+      //     "monday",
+      //     "tuesday",
+      //     "wednesday",
+      //     "thursday",
+      //     "friday",
+      //   ];
+      //   const tbody = table.querySelector("tbody");
+
+      //   // Clear any existing rows (optional if you want to replace current data)
+      //   tbody.innerHTML = "";
+
+      //   // Loop through each weekday and generate a new row
+      //   weekdays.forEach((day, index) => {
+      //     if (normalized && normalized[day]) {
+      //       normalized[day].forEach((entry) => {
+      //         rowCounter++;
+      //         const newRow = document.createElement("tr");
+
+      //         newRow.innerHTML = generateRow(rowCounter);
+      //         tbody.appendChild(newRow);
+
+      //         // Fill values into the newly inserted row
+      //         document.getElementById(`applicationId${rowCounter}`).value =
+      //           normalized.application_code;
+      //         document.getElementById(`projectId${rowCounter}`).value =
+      //           entry.project;
+      //         document.getElementById(`activityId${rowCounter}`).value =
+      //           entry.activity;
+
+      //         // Set hours for the correct day
+      //         const dayCapitalized =
+      //           day.charAt(0).toUpperCase() + day.slice(1, 3); // e.g., "Mon"
+      //         const hoursId = `${dayCapitalized}Hours${rowCounter}`;
+      //         const hoursInput = document.getElementById(hoursId);
+      //         if (hoursInput) {
+      //           hoursInput.value = `${entry.hours}:00`; // Convert to format like "8:00"
+      //         }
+      //       });
+      //     }
+      //   });
+
+      //   // Also handle "NAW - VDSI Absence" if needed
+      //   if (normalized && normalized["NAW - VDSI Absence"]) {
+      //     normalized["NAW - VDSI Absence"].forEach((entry) => {
+      //       rowCounter++;
+      //       const newRow = document.createElement("tr");
+      //       newRow.innerHTML = generateRow(rowCounter);
+      //       tbody.appendChild(newRow);
+
+      //       document.getElementById(`applicationId${rowCounter}`).value = ""; // Or a code if needed
+      //       document.getElementById(`projectId${rowCounter}`).value =
+      //         "NAW - VDSI Absence";
+      //       document.getElementById(`activityId${rowCounter}`).value = "";
+
+      //       const day = entry.day.slice(0, 3); // "Fri"
+      //       const hoursId = `${day}Hours${rowCounter}`;
+      //       const hoursInput = document.getElementById(hoursId);
+      //       if (hoursInput) {
+      //         hoursInput.value = `${entry.hours}:00`;
+      //       }
+      //     });
+      //   }
+      // }
     </script>
   </body>
 </html>

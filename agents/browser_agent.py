@@ -73,62 +73,12 @@ def safe_select(driver, by, value, option, retries=3):
     return False
 
 
-def normalize_hours(hours_val):
-    if isinstance(hours_val, (int, float)):
-        return f"{int(hours_val)}:00"
-    s = str(hours_val).strip()
-    return f"{s}:00" if s.isdigit() else s
-
-
-def normalize_timesheet(data):
-    app_code = data.get("application_code", "").strip()
-    day_map = {
-        "monday": "MonHours",
-        "tuesday": "TueHours",
-        "wednesday": "WedHours",
-        "thursday": "ThuHours",
-        "friday": "FriHours",
-    }
-    rows, key_map = [], {}
-    for day_key, base_id in day_map.items():
-        for item in data.get(day_key, []):
-            proj = item.get("project", "").strip()
-            activity = str(item.get("activity", "")).strip()
-            hours_str = normalize_hours(item.get("hours", 0))
-            key = (app_code, proj, activity)
-            if key not in key_map:
-                row = {"application": app_code, "project": proj, "activity": activity, "hours": {}}
-                key_map[key] = row
-                rows.append(row)
-            key_map[key]["hours"][base_id] = hours_str
-    return rows
-
-
-def prepare_rows(data):
-    app_code = data.get("application_code", "").strip()
-    day_map = {
-        "monday": "MonHours",
-        "tuesday": "TueHours",
-        "wednesday": "WedHours",
-        "thursday": "ThuHours",
-        "friday": "FriHours",
-    }
-    rows = []
-    for day_key, base_id in day_map.items():
-        for item in data.get(day_key, []):
-            proj = item.get("project", "").strip()
-            activity = str(item.get("activity", "")).strip()
-            hours_str = normalize_hours(item.get("hours", 0))
-            row = {"application": app_code, "project": proj, "activity": activity, "hours": {base_id: hours_str}}
-            rows.append(row)
-    return rows
-
 # -----------------------------
 # Main Function
 # -----------------------------
-async def fill_timesheet(timesheet_data, preview_only=True, group=True, record=True, record_duration=30):
+async def fill_timesheet(rows, preview_only=True, record=True, record_duration=30):
     def _run():
-        rows = normalize_timesheet(timesheet_data) if group else prepare_rows(timesheet_data)
+        # `rows` must be final normalized rows prepared by the workflow (no normalization here).
         logging.info(f"Prepared {len(rows)} rows for filling: {rows}")
 
         options = webdriver.ChromeOptions()

@@ -64,7 +64,7 @@ def extract_timesheet_data(state):
     {{
         "application_code": "string",
         "monday": [
-            {{ "date": "MM/DD", "day": "Mon", "project": "Project Name", "hours": int, "activity": "int", }}
+            {{ "date": "MM/DD", "day": "Mon", "project": "Project Name", "hours": int, "activity": "int", "activityLabel":"string" }}
         ],
         "tuesday": [],
         "wednesday": [],
@@ -85,6 +85,7 @@ def extract_timesheet_data(state):
                 "project": "BC#452 Data Synchronisation",
                 "hours": 8,
                 "activity": "4",
+                "activityLabel":"Build"
             }}
         ],
         "tuesday": [
@@ -94,6 +95,7 @@ def extract_timesheet_data(state):
                 "project": "BC#736 Edge Automation",
                 "hours": 8,
                 "activity": "5",
+                "activityLabel":"Functionality Testing & Install - Excludes UAT"
             }}
         ],
         "wednesday": [
@@ -103,6 +105,7 @@ def extract_timesheet_data(state):
                     "project": "AZ#0912 Site Builder",
                     "hours": 8,
                     "activity": "1"
+                    "activityLabel":"Planning, Tracking & Mgmt"
                 }}
             ],
         "thursday": [
@@ -112,6 +115,7 @@ def extract_timesheet_data(state):
                 "project": "CR#76311 Circuit Screen",
                 "hours": 8,
                 "activity": "9",
+                "activityLabel":"End User Maintenance Support"
             }}
         ],
         "friday": [
@@ -121,6 +125,7 @@ def extract_timesheet_data(state):
                 "project": "BC#8922 Equipment Built",
                 "hours": 4,
                 "activity": "11",
+                "activityLabel":"Application Production Support"
             }}
         ],
         "NAW - VDSI Absence": [{{ "date": "09/05", "day": "Fri", "hours": 4 }}]
@@ -161,8 +166,9 @@ def extract_timesheet_data(state):
     return state
 
 def normalize_timesheet(state):
-    data = state["timesheet_data"] 
-    app_code = data.get("application_code", "")
+    """ Normalize and group raw timesheet data into rows structure for UI filling. Groups by (application, project, activity). """
+    data = state.get("timesheet_data", {})
+    app_code = data.get("application_code", "").strip()
 
     # Map weekday keys -> base ID names used in your HTML inputs
     day_map = {
@@ -179,44 +185,98 @@ def normalize_timesheet(state):
     key_map = {}  # (app, project, activity) -> row dict
 
     for day_key, base_id in day_map.items():
-        items = data.get(day_key, [])
-        for item in items:
+        for item in data.get(day_key, []):
             proj = item.get("project", "").strip()
-            activity = str(item.get("activity", "")).strip()  # keep as string
-            hours_val = item.get("hours", 0)
+            activity = str(item.get("activity", "")).strip()
 
-            # Normalize hours to "H:MM" or "H:00"
+            # --- normalize hours inline ---
+            hours_val = item.get("hours", 0)
             if isinstance(hours_val, (int, float)):
                 hours_str = f"{int(hours_val)}:00"
             else:
-                # if already "8:00" or "8" etc, try to normalize
                 s = str(hours_val).strip()
-                if s.isdigit():
-                    hours_str = f"{int(s)}:00"
-                else:
-                    hours_str = s  # assume user provided formatted string
+                hours_str = f"{s}:00" if s.isdigit() else s
 
-            # Key to group identical project entries (same app+project+activity)
             key = (app_code, proj, activity)
-
             if key not in key_map:
-                row = {
-                    "application": app_code,
-                    "project": proj,
-                    "activity": activity,
-                    "hours": {}
-                }
+                row = {"application": app_code, "project": proj, "activity": activity, "hours": {}}
                 key_map[key] = row
                 rows.append(row)
-            else:
-                row = key_map[key]
 
-            # Add/overwrite the day hours for this row
-            row["hours"][base_id] = hours_str
+            # merge into same row
+            key_map[key]["hours"][base_id] = hours_str
 
-    # Save normalized rows into state for downstream steps (selenium)
+    # Attach normalized rows back into state for downstream steps
     state["normalized_timesheet"] = rows
     return state
+
+def modify_timesheet_with_llm(original_json: dict, user_text: str):
+    """Uses Llama3 to intelligently update the previous timesheet JSON based on user's voice command."""
+    condensed_prompt = f"""
+    You are an AI assistant that updates employee timesheet data.
+
+    Maintain the following structure and logic (same as used for initial extraction):
+
+    1️⃣ Output JSON format:
+    {{
+        "application_code": "string",
+        "monday": [{{"date": "MM/DD", "day": "Mon", "project": "string", "hours": int, "activity": "int", "activityLabel":"string"}}],
+        "tuesday": [...],
+        "wednesday": [...],
+        "thursday": [...],
+        "friday": [...],
+        "NAW - VDSI Absence": [{{"date": "MM/DD", "day": "Day", "hours": int}}]
+    }}
+
+    2️⃣ Rules:
+    - Monday–Friday only (no weekends unless explicitly mentioned).
+    - "activity" field must always exist for work entries.
+    - If a day has no entry, use [].
+    - "NAW - VDSI Absence" only includes leave days (4 or 8 hours).
+    - Hours must be integers.
+    - Projects and activities retain same structure as before.
+
+    3️⃣ Activity Options (for matching when new activity mentioned):
+    - {{"1": "Planning, Tracking & Mgmt"}}
+    - {{"2": "Requirements Definition & General Design"}}
+    - {{"3": "Detailed Design"}}
+    - {{"4": "Build"}}
+    - {{"5": "Functionality Testing & Install - Excludes UAT"}}
+    - {{"6": "Data Conversion, Data Migration & Table Entry"}}
+    - {{"7": "Application Maintenance Support"}}
+    - {{"8": "Infrastructure Maintenance Support"}}
+    - {{"9": "End User Maintenance Support"}}
+    - {{"10": "Implementation - Purchased Hardware"}}
+    - {{"11": "Application Production Support"}}
+    - {{"12": "Infrastructure Production Support"}}
+    - {{"13": "End User Production Support"}}
+    - {{"14": "Administration"}}
+    - {{"15": "Training Conference"}}
+    - {{"16": "Travel"}}
+    - {{"17": "Employee Down Time"}}
+
+    The user has requested some modifications to their existing timesheet.
+    Apply only those modifications while preserving the rest exactly.
+
+    Example:
+    User says "Change Monday to 6 hours, make Tuesday leave"
+    → You update the relevant fields and keep all others same.
+
+    User modification text:
+    "{user_text}"
+
+    Previous JSON:
+    {json.dumps(original_json, indent=2)}
+
+    Now produce the UPDATED JSON (no commentary, only valid JSON).
+    """
+
+    response = llm.invoke(condensed_prompt)
+    try:
+        return json.loads(response)
+    except Exception as e:
+        print("⚠️ Failed to parse LLM JSON response:", e)
+        return {"error": "Invalid LLM output", "raw_response": response}
 
 
 

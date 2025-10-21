@@ -1,114 +1,547 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
-    <title>Voice Recorder</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Timesheet Voice Chat</title>
+    <style>
+      :root {
+        --bg: #0f1724;
+        --card: #0b1220;
+        --accent: #4f46e5;
+        --muted: #94a3b8;
+        --surface: #0b1220;
+        color-scheme: dark;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        font-family: Inter, Segoe UI, Roboto, system-ui, -apple-system, Arial;
+      }
+      body {
+        background: linear-gradient(180deg, #37579d 0%, #07122a 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        /* padding: 24px; */
+      }
+      .container {
+        width: 760px;
+        max-width: 96%;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 14px;
+        box-shadow: 0 8px 30px rgba(2, 6, 23, 0.6);
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.04);
+      }
+      .header {
+        padding: 18px 20px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #e6eef8;
+      }
+      .subtitle {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .chat {
+        height: 420px;
+        padding: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        overflow: auto;
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.01),
+          transparent
+        );
+      }
+      .message {
+        max-width: 78%;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.02),
+          rgba(255, 255, 255, 0.01)
+        );
+        color: #dbeafe;
+        font-size: 14px;
+      }
+      .message.user {
+        margin-left: auto;
+        background: linear-gradient(
+          180deg,
+          rgba(79, 70, 229, 0.15),
+          rgba(79, 70, 229, 0.08)
+        );
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.06);
+      }
+      .controls {
+        display: flex;
+        gap: 10px;
+        padding: 16px;
+        border-top: 1px solid rgba(255, 255, 255, 0.02);
+        align-items: center;
+      }
+      .record-btn {
+        background: linear-gradient(90deg, var(--accent), #06b6d4);
+        color: white;
+        border: none;
+        padding: 12px 14px;
+        border-radius: 10px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      .secondary {
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        color: var(--muted);
+        padding: 10px 12px;
+        border-radius: 10px;
+        cursor: pointer;
+      }
+      .btn-danger {
+        background: transparent;
+        border: 1px solid rgba(255, 80, 80, 0.18);
+        color: #ffb4b4;
+      }
+      .muted {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .audio-preview {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      .spacer {
+        flex: 1;
+      }
+      .icon {
+        width: 18px;
+        height: 18px;
+        display: inline-block;
+      }
+      footer small {
+        color: var(--muted);
+        padding: 12px 18px;
+        display: block;
+      }
+    </style>
   </head>
   <body>
-    <h2>🎤 Record Your Message</h2>
-    <button id="recordBtn">🎙️ Start Recording</button>
-    <button id="stopBtn" disabled>🛑 Stop</button>
-    <p id="status"></p>
-    <p><strong>Transcription:</strong> <span id="resultText"></span></p>
+    <div class="container">
+      <div class="header">
+        <div>
+          <div class="title">Timesheet Voice Chat</div>
+          <div class="subtitle">
+            Record, preview, Modify and submit timesheet entries.
+          </div>
+        </div>
+      </div>
+
+      <div id="chat" class="chat">
+        <div class="message">
+          Welcome <strong>V Teamer</strong> — press <strong>Record</strong> to
+          start.
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="recordToggle" class="record-btn" title="Start recording">
+          <span id="micIcon">🎙️</span>
+          <span id="recordLabel">Record</span>
+        </button>
+
+        <div
+          id="postControls"
+          style="display: none; align-items: center; gap: 8px"
+        >
+          <div class="audio-preview">
+            <audio id="audioPlayer" controls></audio>
+            <span id="fileName" class="muted"></span>
+          </div>
+          <button id="submitBtn" class="secondary" style="color: greenyellow">
+            Submit
+          </button>
+          <button id="cancelBtn" class="secondary btn-danger">Cancel</button>
+        </div>
+
+        <div class="spacer"></div>
+        <div id="statusText" class="muted">Ready</div>
+      </div>
+    </div>
 
     <script>
-      let audioContext;
-      let mediaRecorder;
-      let audioData = [];
+      // State
+      let audioContext = null;
+      let mediaStream = null;
+      let scriptProcessor = null;
+      let audioChunks = [];
+      let recordedBlob = null;
+      let modifyMode = false;
+      let originalTimesheet = null;
 
-      const recordBtn = document.getElementById("recordBtn");
-      const stopBtn = document.getElementById("stopBtn");
-      const statusText = document.getElementById("status");
-      const resultText = document.getElementById("resultText");
+      const recordToggle = document.getElementById("recordToggle");
+      const recordLabel = document.getElementById("recordLabel");
+      const micIcon = document.getElementById("micIcon");
+      const statusText = document.getElementById("statusText");
+      const chat = document.getElementById("chat");
+      const postControls = document.getElementById("postControls");
+      const audioPlayer = document.getElementById("audioPlayer");
+      const fileName = document.getElementById("fileName");
+      const submitBtn = document.getElementById("submitBtn");
+      const cancelBtn = document.getElementById("cancelBtn");
 
-      recordBtn.onclick = async () => {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-        });
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const input = audioContext.createMediaStreamSource(stream);
-        const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      function appendMessage(text, cssClass = "") {
+        const el = document.createElement("div");
+        el.className = "message " + cssClass;
+        el.innerHTML = text;
+        chat.appendChild(el);
+        chat.scrollTop = chat.scrollHeight;
+      }
 
-        input.connect(processor);
-        processor.connect(audioContext.destination);
+      async function startRecording() {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+          });
+          audioContext = new (window.AudioContext ||
+            window.webkitAudioContext)();
+          mediaStream = stream;
+          const input = audioContext.createMediaStreamSource(stream);
+          // Use ScriptProcessor for consistent Float32 chunks
+          scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
+          audioChunks = [];
 
-        audioData = [];
+          scriptProcessor.onaudioprocess = (e) => {
+            const channelData = e.inputBuffer.getChannelData(0);
+            audioChunks.push(new Float32Array(channelData));
+          };
 
-        processor.onaudioprocess = (e) => {
-          const channelData = e.inputBuffer.getChannelData(0);
-          audioData.push(new Float32Array(channelData));
-        };
+          input.connect(scriptProcessor);
+          scriptProcessor.connect(audioContext.destination);
 
-        mediaRecorder = { stream, processor };
-        statusText.innerText = "🎙️ Recording...";
-        recordBtn.disabled = true;
-        stopBtn.disabled = false;
-      };
+          recordLabel.textContent = "Stop";
+          recordToggle.style.background = "red";
 
-      stopBtn.onclick = async () => {
-        const { stream, processor } = mediaRecorder;
-        processor.disconnect();
-        stream.getTracks().forEach((track) => track.stop());
-
-        const wavBlob = encodeWAV(audioData, audioContext.sampleRate);
-        const formData = new FormData();
-        formData.append("file", wavBlob, "voice.wav");
-
-        statusText.innerText = "⏳ Uploading and transcribing...";
-        recordBtn.disabled = false;
-        stopBtn.disabled = true;
-
-        const response = await fetch("/process_timesheet", {
-          method: "POST",
-          body: formData,
-        });
-
-        const data = await response.json();
-        if (data) {
-          // resultText.innerText = data.text;
-          statusText.innerText = "✅ Transcribed successfully.";
-        } else {
-          statusText.innerText = "❌ Transcription failed.";
+          micIcon.innerHTML =
+            '<rect x="6" y="6" width="12" height="12" rx="2" fill="#fff"/>';
+          statusText.textContent = "Recording...";
+          appendMessage("Recording started...", "user");
+        } catch (err) {
+          console.error(err);
+          statusText.textContent = "Microphone access denied";
         }
-      };
+      }
 
-      function encodeWAV(audioData, sampleRate) {
-        const flat = audioData.reduce((acc, val) => {
-          const tmp = new Float32Array(acc.length + val.length);
-          tmp.set(acc);
-          tmp.set(val, acc.length);
-          return tmp;
-        }, new Float32Array());
+      function stopRecording() {
+        if (scriptProcessor) {
+          scriptProcessor.disconnect();
+          scriptProcessor.onaudioprocess = null;
+          scriptProcessor = null;
+        }
+        if (mediaStream) {
+          mediaStream.getTracks().forEach((t) => t.stop());
+          mediaStream = null;
+        }
+        // create wav blob
+        if (audioChunks.length) {
+          recordedBlob = encodeWAV(
+            audioChunks,
+            audioContext ? audioContext.sampleRate : 44100
+          );
+          audioPlayer.src = URL.createObjectURL(recordedBlob);
+          fileName.textContent = "Recorded: timesheet.wav";
+          postControls.style.display = "flex";
+          appendMessage("Recording stopped. Preview available below.");
+          statusText.textContent = "Recorded";
+        } else {
+          statusText.textContent = "No audio captured";
+        }
+        recordLabel.textContent = "Record";
+        recordToggle.style.background =
+          "linear-gradient(90deg, var(--accent), #06b6d4)";
+        micIcon.innerHTML = "🎙️";
+      }
 
-        const buffer = new ArrayBuffer(44 + flat.length * 2);
+      recordToggle.addEventListener("click", async () => {
+        if (recordLabel.textContent === "Record") {
+          // start
+          await startRecording();
+        } else {
+          // stop
+          stopRecording();
+        }
+      });
+
+      submitBtn.addEventListener("click", async () => {
+        if (!recordedBlob) {
+          statusText.textContent = "No recording to submit";
+          return;
+        }
+
+        statusText.textContent = "Uploading...";
+        appendMessage("Uploading recording to server...", "user");
+        const fd = new FormData();
+        fd.append(
+          "file",
+          new File([recordedBlob], "timesheet.wav", { type: "audio/wav" })
+        );
+
+        if (modifyMode && originalTimesheet) {
+          fd.append("timesheet", JSON.stringify(originalTimesheet));
+
+          statusText.textContent = "Submitting modified timesheet...";
+          appendMessage(
+            "Submitting modified timesheet with comments...",
+            "user"
+          );
+
+          try {
+            const res = await fetch("/modifyTimeSheet", {
+              method: "POST",
+              body: fd,
+            });
+
+            const data = await res.json();
+            appendMessage("Modified timesheet submitted.");
+            statusText.textContent = "Modified & submitted";
+            modifyMode = false;
+            originalTimesheet = null;
+          } catch (err) {
+            console.error(err);
+            appendMessage("Failed to submit modified timesheet.");
+            statusText.textContent = "Modify failed";
+          }
+
+          return;
+        }
+
+        try {
+          const res = await fetch("/process_timesheet", {
+            method: "POST",
+            body: fd,
+          });
+
+          if (!res.ok) {
+            const text = await res.text().catch(() => "");
+            appendMessage(
+              `Server returned ${res.status}: ${res.statusText} ${text}`
+            );
+            statusText.textContent = `Upload failed (${res.status})`;
+            return;
+          }
+
+          const data = await res.json();
+          appendMessage("Server response received.");
+          statusText.textContent = "Uploaded";
+
+          if (data && data.timeSheetData) {
+            displayTimesheet(data);
+            showActionButtons(data);
+          }
+        } catch (err) {
+          console.error(err);
+          // Detect common offline/fetch failures and show actionable message
+          if (err instanceof TypeError) {
+            appendMessage(
+              "Upload failed: network request failed. Is the backend running?",
+              ""
+            );
+            statusText.textContent =
+              "Network error: check server or connection";
+          } else {
+            appendMessage("Upload failed.");
+            statusText.textContent = "Upload failed";
+          }
+        }
+        // keep preview available - user can cancel to remove
+      });
+
+      // Update status when online/offline changes
+      window.addEventListener("online", () => {
+        statusText.textContent = "Online — ready";
+        appendMessage("Network reconnected. You can submit recordings now.");
+      });
+      window.addEventListener("offline", () => {
+        statusText.textContent = "Offline — cannot upload";
+        appendMessage(
+          "You are offline. Start your server or check your network before submitting."
+        );
+      });
+
+      cancelBtn.addEventListener("click", () => {
+        // remove recorded blob and UI
+        if (audioPlayer.src) {
+          URL.revokeObjectURL(audioPlayer.src);
+        }
+        recordedBlob = null;
+        audioPlayer.src = "";
+        fileName.textContent = "";
+        postControls.style.display = "none";
+        audioChunks = [];
+        statusText.textContent = "Ready";
+        appendMessage("Recording canceled. You can record again.");
+      });
+
+      function encodeWAV(buffers, sampleRate) {
+        // flat
+        const length = buffers.reduce((sum, b) => sum + b.length, 0);
+        const result = new Float32Array(length);
+        let offset = 0;
+        for (const b of buffers) {
+          result.set(b, offset);
+          offset += b.length;
+        }
+
+        const bytesPerSample = 2;
+        const blockAlign = bytesPerSample * 1;
+        const buffer = new ArrayBuffer(44 + result.length * bytesPerSample);
         const view = new DataView(buffer);
 
-        function writeString(view, offset, str) {
-          for (let i = 0; i < str.length; i++) {
-            view.setUint8(offset + i, str.charCodeAt(i));
+        function writeString(view, offset, string) {
+          for (let i = 0; i < string.length; i++) {
+            view.setUint8(offset + i, string.charCodeAt(i));
           }
         }
 
         writeString(view, 0, "RIFF");
-        view.setUint32(4, 36 + flat.length * 2, true);
+        view.setUint32(4, 36 + result.length * bytesPerSample, true);
         writeString(view, 8, "WAVE");
         writeString(view, 12, "fmt ");
-        view.setUint32(16, 16, true); // Subchunk1Size
-        view.setUint16(20, 1, true); // AudioFormat
-        view.setUint16(22, 1, true); // NumChannels
-        view.setUint32(24, sampleRate, true); // SampleRate
-        view.setUint32(28, sampleRate * 2, true); // ByteRate
-        view.setUint16(32, 2, true); // BlockAlign
-        view.setUint16(34, 16, true); // BitsPerSample
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, 1, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * blockAlign, true);
+        view.setUint16(32, blockAlign, true);
+        view.setUint16(34, bytesPerSample * 8, true);
         writeString(view, 36, "data");
-        view.setUint32(40, flat.length * 2, true);
+        view.setUint32(40, result.length * bytesPerSample, true);
 
-        let offset = 44;
-        for (let i = 0; i < flat.length; i++, offset += 2) {
-          const s = Math.max(-1, Math.min(1, flat[i]));
-          view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+        // PCM 16-bit
+        let index = 44;
+        for (let i = 0; i < result.length; i++, index += 2) {
+          let s = Math.max(-1, Math.min(1, result[i]));
+          view.setInt16(index, s < 0 ? s * 0x8000 : s * 0x7fff, true);
         }
 
-        return new Blob([view], { type: "audio/wav" });
+        return new Blob([buffer], { type: "audio/wav" });
+      }
+
+      function displayTimesheet(data) {
+        const container = document.createElement("div");
+        container.className = "message";
+
+        const ts = data.timeSheetData;
+        console.log("Parsed timesheet data:", ts);
+
+        let html = `<strong>Timesheet Preview:</strong><br/><p>Application Code: ${ts.application_code}</p><br/>`;
+        html += `<table border="1" style="border-collapse: collapse; width: 100%; color: #dbeafe;">`;
+        html += `<thead><tr><th>Day</th><th>Date</th><th>Project</th><th>Hours</th><th>Activity</th></tr></thead><tbody>`;
+
+        for (const [dayKey, entries] of Object.entries(ts)) {
+          if (dayKey === "application_code") continue; // Skip application_code
+
+          const entryList = Array.isArray(entries) ? entries : [entries];
+
+          entryList.forEach((entry) => {
+            html += `<tr>
+        <td>${entry.day || dayKey}</td>
+        <td>${entry.date || "-"}</td>
+        <td>${entry.project || dayKey}</td>
+        <td>${entry.hours}</td>
+        <td>${entry.activity || "-"}</td>
+      </tr>`;
+          });
+        }
+
+        html += `</tbody></table>`;
+
+        container.innerHTML = html;
+        chat.appendChild(container);
+        chat.scrollTop = chat.scrollHeight;
+      }
+
+      function showActionButtons(data) {
+        const actions = document.createElement("div");
+        actions.style.display = "flex";
+        actions.style.gap = "10px";
+        actions.style.marginTop = "10px";
+
+        const acceptBtn = document.createElement("button");
+        acceptBtn.textContent = "✅ Accept";
+        acceptBtn.className = "record-btn";
+        acceptBtn.onclick = () => submitTimesheet(data.timeSheetData);
+
+        const modifyBtn = document.createElement("button");
+        modifyBtn.textContent = "✏️ Modify";
+        modifyBtn.className = "secondary";
+        modifyBtn.onclick = () => prepareModifyMode(data);
+
+        const cancelBtn = document.createElement("button");
+        cancelBtn.textContent = "❌ Cancel";
+        cancelBtn.className = "secondary btn-danger";
+        cancelBtn.onclick = resetChat;
+
+        actions.appendChild(acceptBtn);
+        actions.appendChild(modifyBtn);
+        actions.appendChild(cancelBtn);
+        chat.appendChild(actions);
+      }
+
+      function submitTimesheet(tsData) {
+        statusText.textContent = "Submitting timesheet...";
+        appendMessage("Submitting accepted timesheet...");
+
+        fetch("/submitTimesheet", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(tsData),
+        })
+          .then((res) => res.json())
+          .then((response) => {
+            appendMessage("Timesheet submitted successfully.");
+            statusText.textContent = "Submitted";
+          })
+          .catch((err) => {
+            console.error(err);
+            appendMessage("Error submitting timesheet.");
+            statusText.textContent = "Submit failed";
+          });
+      }
+
+      function resetChat() {
+        chat.innerHTML = `<div class="message">
+    Welcome <strong>V Teamer</strong> — press <strong>Record</strong> to
+    start.
+  </div>`;
+        statusText.textContent = "Ready";
+        postControls.style.display = "none";
+        audioPlayer.src = "";
+        recordedBlob = null;
+        audioChunks = [];
+      }
+
+      function prepareModifyMode(data) {
+        modifyMode = true;
+        originalTimesheet = data.timeSheetData;
+        appendMessage("Please record your modification comments...");
       }
     </script>
   </body>
